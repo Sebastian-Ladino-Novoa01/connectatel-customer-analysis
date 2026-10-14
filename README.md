@@ -1,59 +1,96 @@
-📊 Customer Usage Analysis and Segmentation — ConnectaTel
-🎯 Project Objective
+# Customer Usage Analysis and Segmentation — ConnectaTel (Python)
 
-Analyze the usage behavior (calls and messages) of ConnectaTel customers, a telecommunications company, to answer key business questions:
+Data cleaning, missing-data diagnosis, outlier analysis and customer segmentation for a Latin American telecom company, using 2024 data on 4,000 customers and 40,000 calls and texts.
 
-Which customer segments show higher or lower usage of calls and messages?
-Which users show outlier values that could indicate unusual behavior, fraud, or registration errors?
-How does usage vary by age and plan type?
-What patterns can help design better plans, optimize the offering, and improve customer satisfaction?
+## Business Questions
 
-The final deliverable is an executive analysis with actionable business recommendations, based on cleaning, exploring, visualizing, and segmenting the customer data.
+- Which customer segments use calls and texts more or less?
+- Which customers show extreme usage that could signal unusual behaviour, fraud or capture errors?
+- How does usage vary by age and plan?
+- What should the company change in its plans and retention strategy?
 
-📁 Datasets Used
-File	Description
-plans.csv	Catalog of available plans (Basic, Premium) with prices and benefits.
-users_latam.csv	Per-user information: personal data, city, registration date, contracted plan, and churn date.
-usage.csv	Activity logged per user: event type (call or text), date, duration (calls), and length (messages).
+## Dataset
 
-These three datasets are combined to build a per-customer behavior profile (user_profile), which serves as the foundation for the entire analysis.
+Three tables, joined into one profile per customer (`user_profile`):
 
-🔄 Analysis Stages
+- `plans.csv`: the two plans (Basico and Premium) with prices and included minutes, texts and GB
+- `users_latam.csv`: 4,000 customers with age, city, registration date, plan and churn date
+- `usage.csv`: 40,000 events (calls and texts) with date, call duration and text length
 
-The notebook follows an 8-step flow:
+> The datasets belong to TripleTen and are not redistributed in this repository.
 
-Load and explore — loading the 3 datasets and initial review of structure and data types.
-Data quality assessment — counting nulls, detecting sentinel values (-999, "?"), and out-of-range dates.
-Basic data cleaning — replacing sentinels, fixing impossible dates, and diagnosing nulls (MCAR/MAR/MNAR) in duration and length.
-Summary statistics of usage per user — aggregating usage by user_id (messages, calls, total minutes) and merging with users to build user_profile.
-Distribution visualization and outliers — histograms per variable (compared by plan) and boxplots for visual outlier detection.
-Customer segmentation — creating grupo_uso (Low/Medium/High usage) and grupo_edad (Young/Adult/Senior), visualized with countplots.
-Executive insights for stakeholders — translating technical findings into business conclusions and recommendations.
-Publication — uploading the notebook and this README to GitHub for a reproducible deliverable.
-▶️ How to Run the Notebook
-Option A: Google Colab (recommended, no installation required)
-Upload the .ipynb file to Google Colab (File > Upload notebook).
-Upload the three CSV files (plans.csv, users_latam.csv, usage.csv) to the /datasets/ folder in the Colab environment, or adjust the loading paths (pd.read_csv(...)) to match where you saved them.
-Run the cells in order, from top to bottom (Runtime > Run all).
-Option B: Local Jupyter Notebook
-Clone this repository:
-bash
-   git clone <repository-url>
-   cd <repository-name>
-Install the required dependencies:
-bash
-   pip install pandas numpy matplotlib seaborn jupyter
-Place the CSV files in a datasets/ folder at the project root (or adjust the paths in the notebook).
-Launch Jupyter and open the notebook:
-bash
-   jupyter notebook
-Run the cells in order.
-🧪 Quick Reproduction Guide
-The notebook is designed to run end-to-end without manual intervention, except for the markdown cells documenting diagnostics (those already contain the written answers).
-If you swap in different source datasets, pay special attention to Step 2 (data quality), since the cleaning thresholds (e.g., the -999 sentinel in age) are defined for this project's original data and may not apply to different data.
-The charts (sns.histplot, sns.boxplot, sns.countplot) are generated automatically when running the corresponding cells; they don't need to be saved separately for the analysis to be reproducible.
-🛠️ Tools Used
-Python 3
-pandas, numpy
-seaborn, matplotlib
-Jupyter Notebook / Google Colab
+## Key Findings
+
+### Usage level is the clearest churn signal
+
+- **High-usage customers (7% of the base) have the lowest share of active customers:** 86.0% vs 88.5% in the low and medium segments.
+- They are not more likely to be on Premium (33% vs about 35% in the other segments), so the current plan structure doesn't capture their value.
+
+### Age does not predict usage
+
+- Adult 50.4%, Senior 30.6%, Young 19.0%.
+- The three age groups have almost identical low / medium / high usage mixes, so age is not a useful basis for targeting offers.
+
+### Extreme users are real, not errors
+
+IQR analysis found outliers in all three usage metrics. All were kept, because the values are realistic and removing them would delete the heavy-usage segment the business is asking about.
+
+- Texts: 46 customers (1.15%) with 12 to 17 texts
+- Calls: 30 customers (0.75%) with 11 to 15 calls
+- **Call minutes: 109 customers (2.73%) with 62 to 160 minutes.** They are 87.2% active and 39.4% Premium (vs 35.1% overall): heavy users who already lean toward the higher plan.
+
+### The more minutes a customer uses, the higher the share of Premium
+
+Call minutes are the only usage metric with a clear plan pattern. Calls are spread proportionally across both plans.
+
+## Recommendations
+
+1. **Retention program for the high-usage segment:** priority support or targeted offers before they churn. Losing them costs more than their 7% share suggests.
+2. **An unlimited or business plan** for the ~109 heavy call-minute users, whose consumption is far above the rest.
+3. **Segment offers by usage behaviour, not age.**
+
+> Caveat: the retention gap is about 2.5 points on a 278-customer segment. It should be validated with more data or a significance test before committing budget.
+
+## Data Quality: Decisions and Reasoning
+
+| Issue | Finding | Decision | Why |
+|---|---|---|---|
+| `duration` / `length` missing | 55.2% / 44.7% | Left as missing | **MAR:** every missing duration is a text and every missing length is a call. Each column is empty exactly where it doesn't apply. Imputing would create fake call durations for texts. |
+| `age` sentinel | Minimum of -999 | Replaced with the median (47) | An impossible value; the median isn't distorted by it the way the mean is |
+| `city` sentinel | 469 customers (11.7%) with "?" | Converted to missing | City is a segmentation dimension; filling it with another city would invent data |
+| `reg_date` future dates | 40 customers (1.0%) dated 2026 | Set to missing | The data ends in 2024; keeping the row preserves the rest of the customer's data |
+| `churn_date` missing | 88.4% | Kept | Expected: an empty churn date means the customer is still active |
+| Dates stored as text | `reg_date`, `churn_date`, `date` | Converted to datetime | Needed for any time comparison |
+
+## Approach
+
+1. **Load and explore** the three tables: shape, types, non-null counts.
+2. **Data quality checks:** missing values, sentinels, duplicates, impossible dates.
+3. **Cleaning:** fixed sentinels and impossible dates; diagnosed missing values with a MAR test (`groupby('type')` on the null flags).
+4. **Usage metrics per customer:** texts, calls and call minutes aggregated by `user_id` and joined with customer data.
+5. **Distributions and outliers:** histograms by plan, boxplots, and IQR limits with the percentage of outliers per metric.
+6. **Segmentation:** usage groups (low / medium / high) and age groups (young / adult / senior), then cross-tabs against plan and churn.
+7. **Executive summary** with findings and recommendations.
+
+## Notebook
+
+[`connectatel_customer_analysis.ipynb`](connectatel_customer_analysis.ipynb): the full analysis, with commentary in English. Variable names and category labels are kept in Spanish, as in the source data (for example, `cant_mensajes` = number of texts, `grupo_uso` = usage group).
+
+## How to Run
+
+1. Open the notebook in Google Colab or Jupyter.
+2. Place `plans.csv`, `users_latam.csv` and `usage.csv` in a `/datasets/` folder, or update the paths in `pd.read_csv(...)`.
+3. Run all cells in order.
+
+```bash
+pip install pandas seaborn matplotlib jupyter
+jupyter notebook connectatel_customer_analysis.ipynb
+```
+
+## Tools
+
+Python · pandas · seaborn · matplotlib · Jupyter
+
+## Author
+
+**Sebastian Ladino Novoa** — Data Analytics Portfolio
